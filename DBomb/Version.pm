@@ -10,7 +10,7 @@ use strict;
 use warnings;
 
 ## This is the RELEASE version, not the CVS Revision.
-our $VERSION = '0.19'; ## tag: version-0_19 (remember to update README)
+our $VERSION = '0.20'; ## tag: version-0_20 (remember to update README)
 
 1;
 __END__

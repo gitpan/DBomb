@@ -121,6 +121,14 @@ unless (@table_names){
     @table_names = sort @$a if $a;
 }
 
+## Does this table exist?
+{   my %h=map{$_=>1} @$a;
+    for (@table_names){
+        next if exists $h{$_};
+        fail("table `$_` not found in database.");
+    }
+}
+
 my %all_tables; ## ($tname => +{ $key_field => $key_field } )
 if (@$a){
     for my $t (@$a){
@@ -146,9 +154,7 @@ for my $t (@table_names){
     }
 
     if ($do_modules){
-        my $podsnip = $do_pod ? "\n=head1 NAME\n\n$mname - object access to $t table via DBomb\n\n=cut\n\n":'';
         print $OUT "package $mname;\n"
-                  .$podsnip
                   ."use strict;\n"
                   ."use warnings;\n"
                   ."use base qw(DBomb::Base);\n";
@@ -190,7 +196,7 @@ for my $t (@table_names){
     }
 
     if ($do_has_a){
-        print $OUT "\n";
+        #print $OUT "\n";
         for my $f (@kcols){
             next unless $f =~ m/^ ([\w_]+?) _? (U?ID) $/ix;
             my ($ft, $fk) = ($1, $2);
@@ -210,7 +216,7 @@ for my $t (@table_names){
     }
 
     if ($do_has_many){
-            print $OUT "\n";
+            #print $OUT "\n";
             ## Attempt to find incoming foreign keys for has_many relationship.
             while (my ($ft, $h) = each %all_tables){
                 next if $ft eq $t; ## same table
@@ -251,6 +257,11 @@ for my $t (@table_names){
                     ? $acols[1]
                     : $acols[0];
         
+        print $OUT "##-# dbomb-gen:begin-pod\n\n";
+
+        print $OUT "\n=head1 NAME\n\n"
+                  ."$mname - object access to $t table via DBomb\n\n"
+                  ."=cut\n\n";
         print $OUT "\n=head1 SYNOPSIS\n\n"
                   ."    \$obj = new $mname();\n"
                   ."    \$obj->insert;\n\n"
@@ -304,6 +315,8 @@ for my $t (@table_names){
         print $OUT "=head1 SEE ALSO\n\n"
                   .(join ",\n", map {"L<$_>"} ("DBomb", map{Cname($_)} (map{$_->[2]} @hacols), (map{$_->[1]} @hmcols)))
                   ."\n\n";
+
+        print $OUT "##-# dbomb-gen:end-pod\n";
                                                     
 
     }
@@ -324,6 +337,14 @@ sub build_update_record {
     return join ' ',
              (map {"--$_=$strs{$_}"} grep { defined $strs{$_} } keys %strs),
              (map {"--$_"} grep {defined $bools{$_}} keys %bools);
+}
+
+sub fail {
+    my @s = grep {defined} @_;
+    @s = ('Unknown error') unless @s;
+    local $" = ':';
+    print STDERR "dbomb-regen: @s\n";
+    exit 1;
 }
 
 1

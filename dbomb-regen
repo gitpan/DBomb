@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use IPC::Open2;
 use IO::File;
+use File::Copy ();
 use File::Temp qw(tempfile);
 use DBI;
 use DBomb::Generator;
@@ -50,33 +51,44 @@ foreach (@files){
 }
 
 foreach my $f (@files){
-    my ($OUT, $OUTFILENAME) = tempfile();
-    my $IN = new IO::File "< $f" or fail($!, $_[0]);
+    print "$f\n";
+    my $outbuf = '';
+    my $lines = slurplines($f);
     my %args;
 
-    while (<$IN>){
-        /^\s*##-#\s*dbomb-gen:args\s*(.*)$/ && do {
+    while (defined(my $x = shift @$lines)){
+        $x =~ /^\s*##-#\s*dbomb-gen:args\s*(.*)$/ && do {
                     %args = parse_args($1);
                     next;
                     };
-        /^\s*##-#\s*dbomb-gen:begin-decls\b/ && do { 
-                    gen_decl($OUT, %args);
-                    skip_until($IN,$OUT, qr/^\s*##-#\d*dbomb-gen:end-decls\b/);
+        $x =~ /^\s*##-#\s*dbomb-gen:begin-decls\b/ && do { 
+                    gen_decl(\$outbuf, %args);
+                    
+                    if(not defined skip_until($lines, qr/^\s*##-#\s*dbomb-gen:end-decls\b/)){
+                        fail($f,"begin-decls with no end-decls. Aborting.");
+                    }
                     next;
                     };
-        print $OUT $_;
+        $outbuf .= $x;
     }
 
-    ## DEBUG DUMP TEMPFILE
-    seek $OUT, 0, 0; 
-    while (<$OUT>){
-        print;
+    ## now make a backup of the original.
+    my $b = "$f.bak";
+    for (my $i=1; -f $b ; ++$i){
+        $b = "$f.bak$i";
     }
-    #print "\ntempfile is $OUTFILENAME\n";
+    if (!File::Copy::copy($f, $b)){
+        fail("could not create backup file", $!, "aborting.");
+    }
+
+    ## Overwrite original file.
+    open OUT, "> $f" or fail("Could open file for writing", $!, $f);
+    print OUT $outbuf;
+    close OUT;
 }
 
 sub gen_decl {
-    my ($OUT, %args) = @_;
+    my ($outbufref, %args) = @_;
 
     ## remove unwanted args
     for (qw(pod gen-modules split-dir)){
@@ -87,9 +99,9 @@ sub gen_decl {
     push @cmd, map {"--$_"} grep { not defined $args{$_} } keys %args; ## The 'bool' keys have undef as value.
     push @cmd, map {("--$_", $args{$_})} grep { defined $args{$_}} keys %args; ## string keys
     
-    my $pid = open2(\*RD, \*WR, @cmd) or fail($!,"Could not exec dbomb-gen");
+    my $pid = open2 (\*RD, \*WR, @cmd) or fail("failed to ipc open2 '$cmd[0]'", $!);
     close WR;
-    while (<RD>){ print $OUT $_ }
+    while (<RD>){ $$outbufref .= $_ }
     close RD;
     waitpid $pid, 0;
 }
@@ -125,18 +137,22 @@ sub parse_args {
 }
 
 sub skip_until {
-    my ($IN, $OUT, $regexp) = @_;
-    while (<$IN>){
-        /$regexp/ && do { print $OUT $_; return };
+    my ($lines, $regexp) = @_;
+    while (defined(my $x = shift @$lines)){
+        $x =~ /$regexp/ && return $x;
     }
+    return undef
 }
 
-sub slurpfile {
-    local $/ = undef;
-    open FD, "< $_[0]" or fail($!, $_[0]);
-    my $data = <FD>;
+
+sub slurplines {
+    open FD, "< $_[0]" or fail("Could not open file for reading", $!, $_[0]);
+    my $lines = [];
+    while (<FD>){
+        push @$lines, $_
+    }
     close FD;
-    return $data;
+    return $lines;
 }
 
 sub fail {
