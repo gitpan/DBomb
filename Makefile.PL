@@ -9,7 +9,7 @@ WriteMakefile(
     'VERSION_FROM'	=> 'DBomb/Version.pm', # finds $VERSION
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => 'DBomb.pm', # retrieve abstract from module
-       AUTHOR     => 'A. U. Thor <jmillaway@ghrsystems.com>') : ()),
+       AUTHOR     => 'millaway@cpan.org') : ()),
 
     'PREREQ_PM'		=> {map{$_=>0} qw(
         base
@@ -19,7 +19,9 @@ WriteMakefile(
         DBI
         Tie::Array
         Tie::IxHash)},
-    'EXE_FILES' => [qw(dbomb-gen)],
+    'EXE_FILES' => [qw(dbomb-gen dbomb-regen)],
+    'MAN1PODS'  => +{ 'dbomb-gen'   => "\$(INST_MAN1DIR)/dbomb-gen.1",
+                      'dbomb-regen' => "\$(INST_MAN1DIR)/dbomb-regen.1" },
 
     'PM' => +{ map {$_ => "\$(INST_LIBDIR)/$_" }
         # Update with:  r!find DBomb/ DBomb.pm -name '*.pm'

@@ -52,3 +52,4 @@ Makefile.PL
 configure
 README
 dbomb-gen
+dbomb-regen

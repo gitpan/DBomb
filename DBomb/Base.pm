@@ -10,7 +10,7 @@ DBomb::Base - Provides inheritable methods mapped to database operations.
 
 use strict;
 use warnings;
-our $VERSION = '$Revision: 1.26 $';
+our $VERSION = '$Revision: 1.27 $';
 
 use DBomb::Query;
 use DBomb::GluedQuery;
@@ -127,6 +127,7 @@ sub selectall_arrayref
     # Let $dbh override default dbh
     $dbh = $class->_dbo_dbh unless defined $dbh;
 
+    $class = ref($class) if ref($class);
 
     ## We don't need a glued query here since we are just selecting the primary key columns.
     ## The tied list will create the objects as needed.
